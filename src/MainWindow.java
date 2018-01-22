@@ -3,12 +3,20 @@ import javafx.geometry.Insets;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyCodeCombination;
+import javafx.scene.input.KeyCombination;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
+import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 
+import java.io.File;
+import java.io.IOException;
+
 public class MainWindow extends Application {
+
+    private File file;
 
     public static void main(String[] args) {
         launch(args);
@@ -16,18 +24,22 @@ public class MainWindow extends Application {
 
     @Override
     public void start(Stage primaryStage) {
+        setUserAgentStylesheet(STYLESHEET_MODENA);
         primaryStage.setTitle("New diagram");
 
         Alert error = new Alert(Alert.AlertType.ERROR);
         error.setTitle("Error");
+        error.setHeaderText(null);
 
         ChoiceDialog<String> symbolChoiceDialog = new ChoiceDialog<>();
         symbolChoiceDialog.setTitle("Create transition");
-        symbolChoiceDialog.setHeaderText("Choose a symbol");
+        symbolChoiceDialog.setHeaderText(null);
+        symbolChoiceDialog.setContentText("Symbol:");
 
         TextInputDialog stateNameDialog = new TextInputDialog();
         stateNameDialog.setTitle("Add state");
-        stateNameDialog.setHeaderText("Input the name of the state");
+        stateNameDialog.setHeaderText(null);
+        stateNameDialog.setContentText("Name:");
 
         Diagram diagram = new Diagram(symbols -> {
             symbolChoiceDialog.getItems().clear();
@@ -35,7 +47,7 @@ public class MainWindow extends Application {
             return symbolChoiceDialog.showAndWait().orElse(null);
         }, () -> stateNameDialog.showAndWait().orElse(null),
         e -> {
-            error.setHeaderText(e);
+            error.setContentText(e);
             error.show();
         });
         ScrollPane diagramContainer = new ScrollPane();
@@ -122,6 +134,64 @@ public class MainWindow extends Application {
         MenuBar menuBar = new MenuBar();
         Menu fileMenu = new Menu("File");
         Menu toolsMenu = new Menu("Tools");
+
+        MenuItem newDiagram = new MenuItem("New");
+        newDiagram.setAccelerator(new KeyCodeCombination(KeyCode.N, KeyCombination.CONTROL_DOWN));
+        newDiagram.setOnAction(e -> {
+            diagram.newDiagram();
+            file = null;
+            primaryStage.setTitle("New diagram");
+        });
+        MenuItem save = new MenuItem("Save");
+        save.setAccelerator(new KeyCodeCombination(KeyCode.S, KeyCombination.CONTROL_DOWN));
+        FileChooser fileChooser = new FileChooser();
+        FileChooser.ExtensionFilter extensionFilter = new FileChooser.ExtensionFilter("Finite state machine", "*.fsm");
+        fileChooser.getExtensionFilters().add(extensionFilter);
+        fileChooser.setSelectedExtensionFilter(extensionFilter);
+        MenuItem saveAs = new MenuItem("Save As...");
+        saveAs.setOnAction(e -> {
+            fileChooser.setTitle("Save");
+            file = fileChooser.showSaveDialog(primaryStage);
+            if (file != null) {
+                try {
+                    FileHandler.save(file, diagram);
+                    primaryStage.setTitle(file.getName());
+                } catch (IOException ex) {
+                    error.setContentText(ex.getMessage());
+                    error.show();
+                }
+            }
+        });
+        save.setOnAction(e -> {
+            if (file != null) {
+                try {
+                    FileHandler.save(file, diagram);
+                } catch (IOException ex) {
+                    error.setContentText(ex.getMessage());
+                    error.show();
+                }
+            } else {
+                saveAs.fire();
+            }
+        });
+        MenuItem open = new MenuItem("Open");
+        open.setAccelerator(new KeyCodeCombination(KeyCode.O, KeyCombination.CONTROL_DOWN));
+        open.setOnAction(e -> {
+            file = fileChooser.showOpenDialog(primaryStage);
+            if (file != null) {
+                try {
+                    FileHandler.open(file, diagram);
+                    primaryStage.setTitle(file.getName());
+                } catch (Exception ex) {
+                    error.setContentText(ex.getMessage());
+                    error.show();
+                    newDiagram.fire();
+                }
+            }
+        });
+        MenuItem exit = new MenuItem("Exit");
+        exit.setOnAction(e -> primaryStage.close());
+        fileMenu.getItems().addAll(newDiagram, open, save, saveAs, new SeparatorMenuItem(), exit);
 
         MenuItem setAlphabet = new MenuItem("Set alphabet");
         TextInputDialog setAlphabetDialog = new TextInputDialog(String.join(",", diagram.getAlphabet()));

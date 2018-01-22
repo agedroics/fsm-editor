@@ -162,7 +162,7 @@ public class Diagram extends Canvas {
         }
     }
 
-    private void fireTransitionChange() {
+    public void fireTransitionChange() {
         if (onTransitionChange != null) {
             Set<Transition> transitions = selected != null ? selected.getTransitions() : this.transitions;
             onTransitionChange.accept(FXCollections.observableArrayList(transitions.stream()
@@ -295,6 +295,27 @@ public class Diagram extends Canvas {
             transitions.remove(t.getTransition());
         }
         fireTransitionChange();
+        update();
+    }
+
+    public Set<State> getStates() {
+        return states;
+    }
+
+    public Set<Transition> getTransitions() {
+        return transitions;
+    }
+
+    public State getStartingState() {
+        return startingState;
+    }
+
+    public void newDiagram() {
+        startingState = null;
+        setSelected(null);
+        states = new HashSet<>();
+        transitions = new HashSet<>();
+        onTransitionChange.accept(FXCollections.emptyObservableList());
         update();
     }
 }

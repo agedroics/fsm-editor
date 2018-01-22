@@ -1,20 +1,22 @@
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
+import java.io.Serializable;
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.Set;
 
-public class State implements Drawable {
+public class State implements Drawable, Serializable {
 
     private String name;
     private boolean isAccepting = false;
-    private boolean isStarting = false;
-    private boolean isSelected = false;
-    private boolean drawingTransition = false;
+    private transient boolean isStarting = false;
+    private transient boolean isSelected = false;
+    private transient boolean drawingTransition = false;
     private double x;
     private double y;
     private double radius = 24;
-    private Set<Transition> transitions = new HashSet<>();
+    private transient Set<Transition> transitions = new HashSet<>();
 
     State(String name, double x, double y) {
         this.name = name;
@@ -114,5 +116,18 @@ public class State implements Drawable {
 
     public void setDrawingTransition(boolean drawingTransition) {
         this.drawingTransition = drawingTransition;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        State state = (State) o;
+        return Objects.equals(name, state.name);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(name);
     }
 }

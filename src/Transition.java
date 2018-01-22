@@ -1,14 +1,22 @@
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
+import java.io.Serializable;
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.Set;
 
-public class Transition implements Drawable {
+public class Transition implements Drawable, Serializable {
 
     private State stateFrom;
     private State stateTo;
     private Set<String> symbols = new HashSet<>();
+
+    Transition(State stateFrom, State stateTo, Set<String> symbols) {
+        this.stateFrom = stateFrom;
+        this.stateTo = stateTo;
+        this.symbols = symbols;
+    }
 
     Transition(State stateFrom, State stateTo, String symbol) {
         this.stateFrom = stateFrom;
@@ -85,5 +93,20 @@ public class Transition implements Drawable {
 
     public Set<String> getSymbols() {
         return symbols;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Transition that = (Transition) o;
+        return Objects.equals(stateFrom, that.stateFrom) &&
+                Objects.equals(stateTo, that.stateTo) &&
+                Objects.equals(symbols, that.symbols);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(stateFrom, stateTo, symbols);
     }
 }
