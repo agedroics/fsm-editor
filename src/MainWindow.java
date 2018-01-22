@@ -5,9 +5,7 @@ import javafx.scene.control.*;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
-import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.VBox;
+import javafx.scene.layout.*;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 
@@ -31,6 +29,9 @@ public class MainWindow extends Application {
         Alert error = new Alert(Alert.AlertType.ERROR);
         error.setTitle("Error");
         error.setHeaderText(null);
+
+        Alert info = new Alert(Alert.AlertType.INFORMATION);
+        info.setHeaderText(null);
 
         ChoiceDialog<String> symbolChoiceDialog = new ChoiceDialog<>();
         symbolChoiceDialog.setTitle("Create transition");
@@ -68,8 +69,102 @@ public class MainWindow extends Application {
         Button deleteState = new Button("Delete state");
         deleteState.setOnAction(e -> diagram.deleteSelectedState());
         deleteState.setVisible(false);
+        Button setStarting = new Button("Set starting");
+        setStarting.setOnAction(e -> {
+            diagram.setStartingState(diagram.getSelected());
+            setStarting.setVisible(false);
+        });
+        setStarting.setVisible(false);
         actions.setSpacing(4);
-        actions.getChildren().addAll(addState, deleteState);
+        actions.getChildren().addAll(addState, deleteState, setStarting);
+        toolPane.getChildren().add(actions);
+
+        StateMachineRunner runner = new StateMachineRunner(diagram, diagram::setActiveStates);
+        VBox runControls = new VBox();
+        HBox wordContainer = new HBox();
+        TextField word = new TextField();
+        word.setPrefWidth(162);
+        Button run = new Button("Run");
+        run.setPrefWidth(70);
+        word.setOnAction(e -> run.fire());
+        wordContainer.getChildren().addAll(word, run);
+        runControls.setSpacing(4);
+        Label runnerLbl = new Label("Runner");
+        runnerLbl.setDisable(true);
+
+        GridPane moveControls = new GridPane();
+        moveControls.setHgap(4);
+        Button stepBack = new Button("<");
+        stepBack.setDisable(true);
+        Button reload = new Button("Start simulation");
+        Button stepForward = new Button(">");
+        Label nextSymbol = new Label();
+        stepBack.setOnAction(e -> {
+            runner.stepBack();
+            stepForward.setDisable(false);
+            nextSymbol.setText("Remaining input: " + runner.getWord().substring(runner.getPos()));
+            if (runner.getPos() == 0) {
+                stepBack.setDisable(true);
+            }
+        });
+        reload.setOnAction(e -> {
+            if (diagram.getStartingState() == null) {
+                error.setContentText("No starting state specified");
+                error.show();
+            } else {
+                reload.setText("Reload");
+                runner.setUp(word.getText());
+                stepBack.setDisable(true);
+                if (!runner.getWord().isEmpty()) {
+                    nextSymbol.setText("Remaining input: " + runner.getWord().substring(runner.getPos()));
+                    stepForward.setDisable(false);
+                } else {
+                    nextSymbol.setText("Input has reached end");
+                }
+            }
+        });
+        stepForward.setDisable(true);
+        stepForward.setOnAction(e -> {
+            stepBack.setDisable(false);
+            runner.stepForward();
+            if (runner.getPos() == runner.getWord().length()) {
+                nextSymbol.setText("Input has reached end");
+                stepForward.setDisable(true);
+            } else {
+                nextSymbol.setText("Remaining input: " + runner.getWord().substring(runner.getPos()));
+            }
+        });
+        Runnable cancelSteps = () -> {
+            stepBack.setDisable(true);
+            reload.setText("Start simulation");
+            stepForward.setDisable(true);
+            nextSymbol.setText("");
+        };
+        diagram.setCancelRunning(cancelSteps);
+        run.setOnAction(e -> {
+            cancelSteps.run();
+            info.setTitle("Run result");
+            if (diagram.getStartingState() == null) {
+                error.setContentText("No starting state specified");
+                error.show();
+            } else if (runner.run(word.getText())) {
+                info.setContentText("The state machine accepts the word");
+                info.show();
+            } else {
+                info.setContentText("The state machine does not accept the word");
+                info.show();
+            }
+        });
+        moveControls.add(stepBack, 0, 0);
+        moveControls.add(reload, 1, 0);
+        GridPane.setHgrow(reload, Priority.ALWAYS);
+        reload.setMaxWidth(300);
+        moveControls.add(stepForward, 2, 0);
+
+        moveControls.setPrefWidth(232);
+
+        runControls.getChildren().addAll(runnerLbl, new Separator(), new Label("Word"), wordContainer, nextSymbol, moveControls);
+        toolPane.getChildren().add(runControls);
 
         Label statePropertiesLbl = new Label("State properties");
         statePropertiesLbl.setDisable(true);
@@ -78,14 +173,18 @@ public class MainWindow extends Application {
         stateProperties.setSpacing(4);
 
         TextField stateName = new TextField();
+        stateName.setPrefWidth(162);
         Button renameState = new Button("Rename");
+        renameState.setPrefWidth(70);
         stateName.setOnAction(e -> renameState.fire());
         renameState.setOnAction(e -> diagram.renameSelectedState(stateName.getText()));
         HBox stateRenameBox = new HBox(stateName, renameState);
         stateProperties.getChildren().addAll(new Label("Name"), stateRenameBox);
 
         TextField stateRadius = new TextField();
+        stateRadius.setPrefWidth(162);
         Button resizeState = new Button("Resize");
+        resizeState.setPrefWidth(70);
         stateRadius.setOnAction(e -> resizeState.fire());
         resizeState.setOnAction(e -> diagram.resizeSelectedState(stateRadius.getText()));
         HBox stateResizeBox = new HBox(stateRadius, resizeState);
@@ -94,13 +193,7 @@ public class MainWindow extends Application {
         CheckBox isAccepting = new CheckBox("Accepting");
         isAccepting.setOnAction(e -> diagram.toggleSelectedStateAccepting());
         stateProperties.getChildren().add(isAccepting);
-
-        Button setStarting = new Button("Set as starting state");
-        setStarting.setOnAction(e -> {
-            diagram.setStartingState(diagram.getSelected());
-            setStarting.setVisible(false);
-        });
-        stateProperties.getChildren().add(setStarting);
+        toolPane.getChildren().add(stateProperties);
 
         diagram.setOnSelectionChange(s -> {
             if (s != null) {
@@ -112,6 +205,7 @@ public class MainWindow extends Application {
                 stateProperties.setVisible(true);
             } else {
                 deleteState.setVisible(false);
+                setStarting.setVisible(false);
                 stateProperties.setVisible(false);
             }
         });
@@ -120,6 +214,7 @@ public class MainWindow extends Application {
         transitionListLbl.setDisable(true);
         VBox transitionList = new VBox(transitionListLbl);
         ListView<TransitionItem> transitionListView = new ListView<>();
+        transitionListView.setPrefWidth(232);
         transitionListView.setCellFactory(f -> new TransitionItem.TransitionCell(diagram::deleteTransition));
         transitionListView.setOnKeyPressed(e -> {
             if (e.getCode() == KeyCode.DELETE && transitionListView.getSelectionModel().getSelectedItem() != null) {
@@ -129,8 +224,7 @@ public class MainWindow extends Application {
         diagram.setOnTransitionChange(transitionListView::setItems);
         transitionList.setSpacing(4);
         transitionList.getChildren().addAll(transitionListView);
-
-        toolPane.getChildren().addAll(actions, stateProperties, transitionList);
+        toolPane.getChildren().add(transitionList);
 
         MenuBar menuBar = new MenuBar();
         Menu fileMenu = new Menu("File");
@@ -201,13 +295,13 @@ public class MainWindow extends Application {
         fileMenu.getItems().addAll(newDiagram, open, save, saveAs, new SeparatorMenuItem(), exit);
 
         MenuItem setAlphabet = new MenuItem("Set alphabet");
-        TextInputDialog setAlphabetDialog = new TextInputDialog(String.join(",", diagram.getAlphabet()));
+        TextInputDialog setAlphabetDialog = new TextInputDialog();
         setAlphabetDialog.setTitle("Set alphabet");
         setAlphabetDialog.setHeaderText("Input the symbols of the alphabet (comma separated)");
-        setAlphabet.setOnAction(e -> setAlphabetDialog.showAndWait().ifPresent(diagram::setAlphabet));
-
-        Alert info = new Alert(Alert.AlertType.INFORMATION);
-        info.setHeaderText(null);
+        setAlphabet.setOnAction(e -> {
+            setAlphabetDialog.getEditor().setText(String.join(",", diagram.getAlphabet()));
+            setAlphabetDialog.showAndWait().ifPresent(diagram::setAlphabet);
+        });
 
         MenuItem testDeterminism = new MenuItem("Test determinism");
         testDeterminism.setOnAction(e -> {

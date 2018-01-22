@@ -51,7 +51,9 @@ public class Transition implements Drawable, Serializable {
             double x1, y1, x2, y2;
             double angle = -Math.atan2(stateTo.getX() + stateTo.getRadius() - stateFrom.getX() - stateFrom.getRadius(),
                     stateTo.getY() + stateTo.getRadius() - stateFrom.getY() - stateFrom.getRadius());
+            boolean bidirectional = false;
             if (stateTo.getTransitions().stream().anyMatch(t -> t.getStateTo().equals(stateFrom))) {
+                bidirectional = true;
                 x1 = stateFrom.getX() + stateFrom.getRadius() + stateFrom.getRadius() * Math.cos(angle + Math.PI / 3);
                 y1 = stateFrom.getY() + stateFrom.getRadius() + stateFrom.getRadius() * Math.sin(angle + Math.PI / 3);
                 x2 = stateTo.getX() + stateTo.getRadius() + stateTo.getRadius() * Math.cos(angle - Math.PI / 3);
@@ -75,7 +77,7 @@ public class Transition implements Drawable, Serializable {
                 gc.strokeLine(length, 0, length - 8, -4);
             } else {
                 gc.rotate(Math.toDegrees(angle - Math.PI / 2));
-                gc.fillText(String.join(", ", symbols), -length / 2, 16);
+                gc.fillText(String.join(", ", symbols), -length / 2, bidirectional ? 16 : -16);
                 gc.strokeLine(-length, 0, -length + 8, 4);
                 gc.strokeLine(-length, 0, -length + 8, -4);
             }

@@ -13,6 +13,7 @@ public class State implements Drawable, Serializable {
     private transient boolean isStarting = false;
     private transient boolean isSelected = false;
     private transient boolean drawingTransition = false;
+    private transient boolean isActive = false;
     private double x;
     private double y;
     private double radius = 24;
@@ -26,7 +27,9 @@ public class State implements Drawable, Serializable {
 
     @Override
     public void draw(GraphicsContext gc) {
-        if (drawingTransition) {
+        if (isActive) {
+            gc.setStroke(Color.RED);
+        } else if (drawingTransition) {
             gc.setStroke(Color.GREEN);
         } else if (isSelected) {
             gc.setStroke(Color.BLUE);
@@ -38,7 +41,9 @@ public class State implements Drawable, Serializable {
         if (isAccepting) {
             gc.strokeOval(x + 4, y + 4, radius * 2 - 8, radius * 2 - 8);
         }
-        if (drawingTransition) {
+        if (isActive) {
+            gc.setFill(Color.RED);
+        } else if (drawingTransition) {
             gc.setFill(Color.GREEN);
         } else if (isSelected) {
             gc.setFill(Color.BLUE);
@@ -124,5 +129,9 @@ public class State implements Drawable, Serializable {
         if (o == null || getClass() != o.getClass()) return false;
         State state = (State) o;
         return Objects.equals(name, state.name);
+    }
+
+    public void setActive(boolean active) {
+        isActive = active;
     }
 }

@@ -29,6 +29,7 @@ public class Diagram extends Canvas {
     private Consumer<ObservableList<TransitionItem>> onTransitionChange;
     private Supplier<String> stateNameSupplier;
     private Consumer<String> onError;
+    private Runnable cancelRunning;
 
     private State selected;
     private double initialOffsetX;
@@ -44,6 +45,10 @@ public class Diagram extends Canvas {
         gc.setTextBaseline(VPos.CENTER);
         setOnMousePressed(e -> {
             if (e.getButton() == MouseButton.PRIMARY) {
+                states.forEach(s -> s.setActive(false));
+                if (cancelRunning != null) {
+                    cancelRunning.run();
+                }
                 setSelected(states.stream()
                         .filter(s -> s.intersects(e.getX(), e.getY()))
                         .findAny().orElse(null));
@@ -73,6 +78,10 @@ public class Diagram extends Canvas {
         });
         setOnMouseClicked(e -> {
             if (e.getButton() == MouseButton.SECONDARY) {
+                states.forEach(s -> s.setActive(false));
+                if (cancelRunning != null) {
+                    cancelRunning.run();
+                }
                 State clickedOn = states.stream()
                         .filter(s -> s.intersects(e.getX(), e.getY()))
                         .findAny().orElse(null);
@@ -157,6 +166,10 @@ public class Diagram extends Canvas {
                 if (startingState == null) {
                     setStartingState(state);
                 }
+                states.forEach(s -> s.setActive(false));
+                if (cancelRunning != null) {
+                    cancelRunning.run();
+                }
                 update();
             }
         }
@@ -194,13 +207,13 @@ public class Diagram extends Canvas {
                 .map(String::trim)
                 .filter(s -> !s.isEmpty())
                 .collect(Collectors.toSet());
-        for (Transition t : transitions) {
+        Set<Transition> removableTransitions = new HashSet<>();
+        transitions.forEach(t -> {
             t.getSymbols().removeIf(s -> !this.alphabet.contains(s) && !s.equals("ε"));
-            if (t.getSymbols().isEmpty()) {
-                t.getStateFrom().getTransitions().remove(t);
-                transitions.remove(t);
-            }
-        }
+            removableTransitions.add(t);
+        });
+        transitions.removeAll(removableTransitions);
+        removableTransitions.forEach(t -> t.getStateFrom().getTransitions().remove(t));
         update();
     }
 
@@ -265,6 +278,7 @@ public class Diagram extends Canvas {
         this.transitionFrom = state;
         if (state != null) {
             state.setDrawingTransition(true);
+            setSelected(null);
         }
         update();
     }
@@ -274,18 +288,21 @@ public class Diagram extends Canvas {
     }
 
     public void deleteSelectedState() {
-        for (Transition t : transitions) {
-            if (t.getStateFrom().equals(selected) || t.getStateTo().equals(selected)) {
-                transitions.remove(t);
-                t.getStateFrom().getTransitions().remove(t);
-            }
-        }
+        Set<Transition> removables = transitions.stream()
+                .filter(t -> t.getStateFrom().equals(selected) || t.getStateTo().equals(selected))
+                .collect(Collectors.toSet());
+        transitions.removeAll(removables);
+        removables.forEach(t -> t.getStateFrom().getTransitions().remove(t));
         fireTransitionChange();
         states.remove(selected);
         if (startingState == selected) {
             startingState = null;
         }
+        states.forEach(s -> s.setActive(false));
         setSelected(null);
+        if (cancelRunning != null) {
+            cancelRunning.run();
+        }
     }
 
     public void deleteTransition(TransitionItem t) {
@@ -295,7 +312,11 @@ public class Diagram extends Canvas {
             transitions.remove(t.getTransition());
         }
         fireTransitionChange();
+        states.forEach(s -> s.setActive(false));
         update();
+        if (cancelRunning != null) {
+            cancelRunning.run();
+        }
     }
 
     public Set<State> getStates() {
@@ -311,6 +332,7 @@ public class Diagram extends Canvas {
     }
 
     public void newDiagram() {
+        cancelRunning.run();
         startingState = null;
         setSelected(null);
         states = new HashSet<>();
@@ -327,5 +349,15 @@ public class Diagram extends Canvas {
             Set<String> symbolSet = new HashSet<>(symbols);
             return symbolSet.contains("ε") || symbols.size() > symbolSet.size() || !symbolSet.equals(alphabet);
         }).map(State::getName).collect(Collectors.toSet());
+    }
+
+    public void setActiveStates(Set<State> activeStates) {
+        activeStates.forEach(s -> s.setActive(true));
+        states.stream().filter(s -> !activeStates.contains(s)).forEach(s -> s.setActive(false));
+        setSelected(null);
+    }
+
+    public void setCancelRunning(Runnable cancelRunning) {
+        this.cancelRunning = cancelRunning;
     }
 }
