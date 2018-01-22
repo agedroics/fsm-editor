@@ -10,7 +10,7 @@ public class FileHandler {
                 StringBuilder::append).toString());
         oos.writeObject(diagram.getStates());
         oos.writeObject(diagram.getTransitions());
-        oos.writeObject(diagram.getStartingState());
+        oos.writeObject(diagram.getStartingState().getName());
         oos.close();
         fos.close();
     }
@@ -34,8 +34,8 @@ public class FileHandler {
             stateFrom.getTransitions().add(transition);
             diagram.getTransitions().add(transition);
         });
-        State startingState = ((State) ois.readObject());
-        diagram.setStartingState(diagram.getStates().stream().filter(s -> s.equals(startingState)).findAny().get());
+        String startingState = ((String) ois.readObject());
+        diagram.setStartingState(diagram.getStates().stream().filter(s -> s.getName().equals(startingState)).findAny().orElse(null));
         diagram.fireTransitionChange();
     }
 }

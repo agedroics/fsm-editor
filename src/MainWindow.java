@@ -13,6 +13,7 @@ import javafx.stage.Stage;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Set;
 
 public class MainWindow extends Application {
 
@@ -142,12 +143,12 @@ public class MainWindow extends Application {
             file = null;
             primaryStage.setTitle("New diagram");
         });
-        MenuItem save = new MenuItem("Save");
-        save.setAccelerator(new KeyCodeCombination(KeyCode.S, KeyCombination.CONTROL_DOWN));
+
         FileChooser fileChooser = new FileChooser();
         FileChooser.ExtensionFilter extensionFilter = new FileChooser.ExtensionFilter("Finite state machine", "*.fsm");
         fileChooser.getExtensionFilters().add(extensionFilter);
         fileChooser.setSelectedExtensionFilter(extensionFilter);
+
         MenuItem saveAs = new MenuItem("Save As...");
         saveAs.setOnAction(e -> {
             fileChooser.setTitle("Save");
@@ -162,6 +163,9 @@ public class MainWindow extends Application {
                 }
             }
         });
+
+        MenuItem save = new MenuItem("Save");
+        save.setAccelerator(new KeyCodeCombination(KeyCode.S, KeyCombination.CONTROL_DOWN));
         save.setOnAction(e -> {
             if (file != null) {
                 try {
@@ -174,6 +178,7 @@ public class MainWindow extends Application {
                 saveAs.fire();
             }
         });
+
         MenuItem open = new MenuItem("Open");
         open.setAccelerator(new KeyCodeCombination(KeyCode.O, KeyCombination.CONTROL_DOWN));
         open.setOnAction(e -> {
@@ -189,8 +194,10 @@ public class MainWindow extends Application {
                 }
             }
         });
+
         MenuItem exit = new MenuItem("Exit");
         exit.setOnAction(e -> primaryStage.close());
+
         fileMenu.getItems().addAll(newDiagram, open, save, saveAs, new SeparatorMenuItem(), exit);
 
         MenuItem setAlphabet = new MenuItem("Set alphabet");
@@ -199,7 +206,24 @@ public class MainWindow extends Application {
         setAlphabetDialog.setHeaderText("Input the symbols of the alphabet (comma separated)");
         setAlphabet.setOnAction(e -> setAlphabetDialog.showAndWait().ifPresent(diagram::setAlphabet));
 
-        toolsMenu.getItems().add(setAlphabet);
+        Alert info = new Alert(Alert.AlertType.INFORMATION);
+        info.setHeaderText(null);
+
+        MenuItem testDeterminism = new MenuItem("Test determinism");
+        testDeterminism.setOnAction(e -> {
+            Set<String> nonDeterministicStates = diagram.findNonDeterministicStates();
+            info.setTitle("Test determinism");
+            if (!nonDeterministicStates.isEmpty()) {
+                info.setContentText("The state machine is non-deterministic at these states: " +
+                        String.join(", ", nonDeterministicStates));
+                info.show();
+            } else {
+                info.setContentText("The state machine is deterministic");
+                info.show();
+            }
+        });
+
+        toolsMenu.getItems().addAll(setAlphabet, testDeterminism);
 
         menuBar.getMenus().addAll(fileMenu, toolsMenu);
 

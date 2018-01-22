@@ -318,4 +318,14 @@ public class Diagram extends Canvas {
         onTransitionChange.accept(FXCollections.emptyObservableList());
         update();
     }
+
+    public Set<String> findNonDeterministicStates() {
+        return states.stream().filter(s -> {
+            List<String> symbols = s.getTransitions().stream()
+                    .flatMap(t -> t.getSymbols().stream())
+                    .collect(Collectors.toList());
+            Set<String> symbolSet = new HashSet<>(symbols);
+            return symbolSet.contains("ε") || symbols.size() > symbolSet.size() || !symbolSet.equals(alphabet);
+        }).map(State::getName).collect(Collectors.toSet());
+    }
 }
