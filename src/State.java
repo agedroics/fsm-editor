@@ -11,13 +11,15 @@ public class State implements Drawable {
     private boolean isStarting = false;
     private boolean isSelected = false;
     private boolean drawingTransition = false;
-    private double x = 24;
-    private double y = 24;
+    private double x;
+    private double y;
     private double radius = 24;
     private Set<Transition> transitions = new HashSet<>();
 
-    State(String name) {
+    State(String name, double x, double y) {
         this.name = name;
+        this.x = x;
+        this.y = y;
     }
 
     @Override
@@ -98,10 +100,6 @@ public class State implements Drawable {
         return transitions;
     }
 
-    public void setTransitions(Set<Transition> transitions) {
-        this.transitions = transitions;
-    }
-
     public boolean isStarting() {
         return isStarting;
     }
@@ -110,16 +108,8 @@ public class State implements Drawable {
         isStarting = starting;
     }
 
-    public boolean isSelected() {
-        return isSelected;
-    }
-
     public void setSelected(boolean selected) {
         isSelected = selected;
-    }
-
-    public boolean isDrawingTransition() {
-        return drawingTransition;
     }
 
     public void setDrawingTransition(boolean drawingTransition) {

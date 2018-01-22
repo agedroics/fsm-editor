@@ -1,20 +1,23 @@
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.geometry.VPos;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.input.KeyCode;
 import javafx.scene.input.MouseButton;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.TextAlignment;
 
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 public class Diagram extends Canvas {
 
-    private static final Font font = Font.font("Arial", 24);
+    private static final Font font = Font.font("Arial", 16);
 
     private final GraphicsContext gc = getGraphicsContext2D();
 
@@ -23,7 +26,9 @@ public class Diagram extends Canvas {
     private Set<State> states = new HashSet<>();
     private Set<Transition> transitions = new HashSet<>();
     private Consumer<State> onSelectionChange;
-    private Consumer<Set<Transition>> onTransitionChange;
+    private Consumer<ObservableList<TransitionItem>> onTransitionChange;
+    private Supplier<String> stateNameSupplier;
+    private Consumer<String> onError;
 
     private State selected;
     private double initialOffsetX;
@@ -31,7 +36,9 @@ public class Diagram extends Canvas {
 
     private State transitionFrom;
 
-    Diagram(Function<Set<String>, String> transitionSymbolSupplier) {
+    Diagram(Function<Set<String>, String> transitionSymbolSupplier, Supplier<String> stateNameSupplier, Consumer<String> onError) {
+        this.stateNameSupplier = stateNameSupplier;
+        this.onError = onError;
         gc.setFont(font);
         gc.setTextAlign(TextAlignment.CENTER);
         gc.setTextBaseline(VPos.CENTER);
@@ -85,6 +92,18 @@ public class Diagram extends Canvas {
                 } else {
                     setTransitionFrom(null);
                 }
+            } else if (e.getButton() == MouseButton.PRIMARY && e.getClickCount() == 2) {
+                if (selected != null) {
+                    toggleSelectedStateAccepting();
+                    onSelectionChange.accept(selected);
+                } else {
+                    addState(e.getX(), e.getY());
+                }
+            }
+        });
+        setOnKeyPressed(e -> {
+            if (e.getCode() == KeyCode.DELETE && selected != null) {
+                deleteSelectedState();
             }
         });
     }
@@ -116,10 +135,6 @@ public class Diagram extends Canvas {
         setHeight(max(getParent().getLayoutBounds().getHeight(), bounds[1]));
     }
 
-    public State getStartingState() {
-        return startingState;
-    }
-
     public void setStartingState(State startingState) {
         if (this.startingState != null) {
             this.startingState.setStarting(false);
@@ -129,29 +144,44 @@ public class Diagram extends Canvas {
         update();
     }
 
-    public boolean addState(String name) {
-        if (states.stream().anyMatch(s -> s.getName().equals(name))) {
-            return false;
+    public void addState(double x, double y) {
+        String name = stateNameSupplier.get();
+        if (name != null) {
+            if (name.trim().isEmpty()) {
+                onError.accept("State name cannot be empty");
+            } else if (states.stream().anyMatch(s -> s.getName().equals(name))) {
+                onError.accept("A state with this name already exists");
+            } else {
+                State state = new State(name, x, y);
+                states.add(state);
+                if (startingState == null) {
+                    setStartingState(state);
+                }
+                update();
+            }
         }
-        State state = new State(name);
-        states.add(state);
-        if (startingState == null) {
-            setStartingState(state);
+    }
+
+    private void fireTransitionChange() {
+        if (onTransitionChange != null) {
+            Set<Transition> transitions = selected != null ? selected.getTransitions() : this.transitions;
+            onTransitionChange.accept(FXCollections.observableArrayList(transitions.stream()
+                    .flatMap(t -> t.getSymbols().stream().map(s -> new TransitionItem(t, s)))
+                    .collect(Collectors.toList())));
         }
-        update();
-        return true;
     }
 
     private void addTransition(State stateFrom, State stateTo, String symbol) {
-        stateFrom.getTransitions().stream().filter(t -> t.getStateTo().equals(stateTo)).findAny()
-                .ifPresentOrElse(t -> t.getSymbols().add(symbol), () -> {
-                    Transition transition = new Transition(stateFrom, stateTo, symbol);
-                    stateFrom.getTransitions().add(transition);
-                    transitions.add(transition);
-                });
-        if (onTransitionChange != null) {
-            onTransitionChange.accept(transitions);
+        Optional<Transition> existingTransition = stateFrom.getTransitions().stream()
+                .filter(t -> t.getStateTo().equals(stateTo)).findAny();
+        if (existingTransition.isPresent()) {
+            existingTransition.get().getSymbols().add(symbol);
+        } else {
+            Transition transition = new Transition(stateFrom, stateTo, symbol);
+            stateFrom.getTransitions().add(transition);
+            transitions.add(transition);
         }
+        fireTransitionChange();
         update();
     }
 
@@ -160,7 +190,10 @@ public class Diagram extends Canvas {
     }
 
     public void setAlphabet(String alphabet) {
-        this.alphabet = Set.of(alphabet.split(","));
+        this.alphabet = Arrays.stream(alphabet.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .collect(Collectors.toSet());
         for (Transition t : transitions) {
             t.getSymbols().removeIf(s -> !this.alphabet.contains(s) && !s.equals("ε"));
             if (t.getSymbols().isEmpty()) {
@@ -186,6 +219,7 @@ public class Diagram extends Canvas {
         if (onSelectionChange != null) {
             onSelectionChange.accept(selected);
         }
+        fireTransitionChange();
         update();
     }
 
@@ -193,13 +227,16 @@ public class Diagram extends Canvas {
         this.onSelectionChange = onSelectionChange;
     }
 
-    public boolean updateSelectedStateName(String name) {
-        if (states.stream().filter(s -> !s.equals(selected)).anyMatch(s -> s.getName().equals(name))) {
-            return false;
-        } else {
-            selected.setName(name);
-            update();
-            return true;
+    public void renameSelectedState(String name) {
+        if (name != null) {
+            if (name.trim().isEmpty()) {
+                onError.accept("State name cannot be empty");
+            } else if (states.stream().anyMatch(s -> s.getName().equals(name))) {
+                onError.accept("A state with this name already exists");
+            } else {
+                selected.setName(name);
+                update();
+            }
         }
     }
 
@@ -208,17 +245,16 @@ public class Diagram extends Canvas {
         update();
     }
 
-    public boolean setSelectedStateRadius(String radius) {
+    public void resizeSelectedState(String radius) {
         try {
             int newRadius = Integer.parseInt(radius);
             if (newRadius <= 0) {
-                return false;
+                onError.accept("Radius cannot be less or equal to 0");
             }
             selected.setRadius(Integer.parseInt(radius));
             update();
-            return true;
         } catch (NumberFormatException e) {
-            return false;
+            onError.accept("Invalid number format");
         }
     }
 
@@ -233,11 +269,32 @@ public class Diagram extends Canvas {
         update();
     }
 
-    public Set<Transition> getTransitions() {
-        return transitions;
+    public void setOnTransitionChange(Consumer<ObservableList<TransitionItem>> onTransitionChange) {
+        this.onTransitionChange = onTransitionChange;
     }
 
-    public void setOnTransitionChange(Consumer<Set<Transition>> onTransitionChange) {
-        this.onTransitionChange = onTransitionChange;
+    public void deleteSelectedState() {
+        for (Transition t : transitions) {
+            if (t.getStateFrom().equals(selected) || t.getStateTo().equals(selected)) {
+                transitions.remove(t);
+                t.getStateFrom().getTransitions().remove(t);
+            }
+        }
+        fireTransitionChange();
+        states.remove(selected);
+        if (startingState == selected) {
+            startingState = null;
+        }
+        setSelected(null);
+    }
+
+    public void deleteTransition(TransitionItem t) {
+        t.getTransition().getSymbols().remove(t.getSymbol());
+        if (t.getTransition().getSymbols().isEmpty()) {
+            t.getTransition().getStateFrom().getTransitions().remove(t.getTransition());
+            transitions.remove(t.getTransition());
+        }
+        fireTransitionChange();
+        update();
     }
 }

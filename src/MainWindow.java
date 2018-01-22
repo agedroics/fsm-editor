@@ -1,12 +1,11 @@
 import javafx.application.Application;
-import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
+import javafx.scene.input.KeyCode;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
-import javafx.scene.text.Text;
 import javafx.stage.Stage;
 
 public class MainWindow extends Application {
@@ -25,59 +24,57 @@ public class MainWindow extends Application {
         ChoiceDialog<String> symbolChoiceDialog = new ChoiceDialog<>();
         symbolChoiceDialog.setTitle("Create transition");
         symbolChoiceDialog.setHeaderText("Choose a symbol");
+
+        TextInputDialog stateNameDialog = new TextInputDialog();
+        stateNameDialog.setTitle("Add state");
+        stateNameDialog.setHeaderText("Input the name of the state");
+
         Diagram diagram = new Diagram(symbols -> {
             symbolChoiceDialog.getItems().clear();
             symbolChoiceDialog.getItems().addAll(symbols);
             return symbolChoiceDialog.showAndWait().orElse(null);
+        }, () -> stateNameDialog.showAndWait().orElse(null),
+        e -> {
+            error.setHeaderText(e);
+            error.show();
         });
         ScrollPane diagramContainer = new ScrollPane();
         diagramContainer.setStyle("-fx-background: white;");
         diagramContainer.setContent(diagram);
         diagramContainer.widthProperty().addListener(e -> diagram.updateSize());
         diagramContainer.heightProperty().addListener(e -> diagram.updateSize());
+        diagramContainer.focusedProperty().addListener(e -> diagram.requestFocus());
 
         VBox toolPane = new VBox();
         toolPane.setPadding(new Insets(4));
         toolPane.setSpacing(16);
 
+        HBox actions = new HBox();
         Button addState = new Button("Add state");
-        TextInputDialog addStateDialog = new TextInputDialog();
-        addStateDialog.setTitle("Add state");
-        addStateDialog.setHeaderText("Input the name of the state");
-        addState.setOnAction(e -> addStateDialog.showAndWait().ifPresent(name -> {
-            if (!diagram.addState(name)) {
-                error.setHeaderText("A state with this name already exists");
-                error.show();
-            }
-        }));
+        addState.setOnAction(e -> diagram.addState(24, 24));
+        Button deleteState = new Button("Delete state");
+        deleteState.setOnAction(e -> diagram.deleteSelectedState());
+        deleteState.setVisible(false);
+        actions.setSpacing(4);
+        actions.getChildren().addAll(addState, deleteState);
 
         Label statePropertiesLbl = new Label("State properties");
         statePropertiesLbl.setDisable(true);
         VBox stateProperties = new VBox(statePropertiesLbl, new Separator());
         stateProperties.setVisible(false);
-        stateProperties.setSpacing(8);
+        stateProperties.setSpacing(4);
 
         TextField stateName = new TextField();
         Button renameState = new Button("Rename");
         stateName.setOnAction(e -> renameState.fire());
-        renameState.setOnAction(e -> {
-            if (!diagram.updateSelectedStateName(stateName.getText())) {
-                error.setHeaderText("A state with this name already exists");
-                error.show();
-            }
-        });
+        renameState.setOnAction(e -> diagram.renameSelectedState(stateName.getText()));
         HBox stateRenameBox = new HBox(stateName, renameState);
         stateProperties.getChildren().addAll(new Label("Name"), stateRenameBox);
 
         TextField stateRadius = new TextField();
         Button resizeState = new Button("Resize");
         stateRadius.setOnAction(e -> resizeState.fire());
-        resizeState.setOnAction(e -> {
-            if (!diagram.setSelectedStateRadius(stateRadius.getText())) {
-                error.setHeaderText("Invalid radius");
-                error.show();
-            }
-        });
+        resizeState.setOnAction(e -> diagram.resizeSelectedState(stateRadius.getText()));
         HBox stateResizeBox = new HBox(stateRadius, resizeState);
         stateProperties.getChildren().addAll(new Label("Radius"), stateResizeBox);
 
@@ -94,12 +91,14 @@ public class MainWindow extends Application {
 
         diagram.setOnSelectionChange(s -> {
             if (s != null) {
+                deleteState.setVisible(true);
                 stateName.setText(s.getName());
                 stateRadius.setText(Integer.toString((int) s.getRadius()));
                 isAccepting.setSelected(diagram.getSelected().isAccepting());
                 setStarting.setVisible(!s.isStarting());
                 stateProperties.setVisible(true);
             } else {
+                deleteState.setVisible(false);
                 stateProperties.setVisible(false);
             }
         });
@@ -107,13 +106,18 @@ public class MainWindow extends Application {
         Label transitionListLbl = new Label("Transitions");
         transitionListLbl.setDisable(true);
         VBox transitionList = new VBox(transitionListLbl);
-        ListView<Transition> transitionListView = new ListView<>();
-        transitionListView.setCellFactory(f -> new TransitionCell());
-        diagram.setOnTransitionChange(transitions -> transitionListView.setItems(FXCollections.observableArrayList(transitions)));
-        transitionList.setSpacing(8);
-        transitionList.getChildren().add(transitionListView);
+        ListView<TransitionItem> transitionListView = new ListView<>();
+        transitionListView.setCellFactory(f -> new TransitionItem.TransitionCell(diagram::deleteTransition));
+        transitionListView.setOnKeyPressed(e -> {
+            if (e.getCode() == KeyCode.DELETE && transitionListView.getSelectionModel().getSelectedItem() != null) {
+                diagram.deleteTransition(transitionListView.getSelectionModel().getSelectedItem());
+            }
+        });
+        diagram.setOnTransitionChange(transitionListView::setItems);
+        transitionList.setSpacing(4);
+        transitionList.getChildren().addAll(transitionListView);
 
-        toolPane.getChildren().addAll(addState, stateProperties, transitionList);
+        toolPane.getChildren().addAll(actions, stateProperties, transitionList);
 
         MenuBar menuBar = new MenuBar();
         Menu fileMenu = new Menu("File");
@@ -134,19 +138,7 @@ public class MainWindow extends Application {
         mainLayout.setRight(toolPane);
         mainLayout.setCenter(diagramContainer);
         primaryStage.setScene(new Scene(mainLayout, 800 ,600));
-        primaryStage.sizeToScene();
         primaryStage.show();
-    }
-
-    static class TransitionCell extends ListCell<Transition> {
-
-        @Override
-        protected void updateItem(Transition item, boolean empty) {
-            super.updateItem(item, empty);
-            if (item != null) {
-                Text name = new Text(item.getStateFrom().getName());
-                setGraphic(name);
-            }
-        }
+        diagram.updateSize();
     }
 }
