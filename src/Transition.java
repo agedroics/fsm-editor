@@ -104,9 +104,4 @@ public class Transition implements Drawable, Serializable {
                 Objects.equals(stateTo, that.stateTo) &&
                 Objects.equals(symbols, that.symbols);
     }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(stateFrom, stateTo, symbols);
-    }
 }

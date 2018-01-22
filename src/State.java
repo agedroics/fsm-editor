@@ -125,9 +125,4 @@ public class State implements Drawable, Serializable {
         State state = (State) o;
         return Objects.equals(name, state.name);
     }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(name);
-    }
 }
