@@ -245,11 +245,12 @@ public class MainWindow extends Application {
 
         MenuItem saveAs = new MenuItem("Save As...");
         saveAs.setOnAction(e -> {
-            fileChooser.setTitle("Save");
-            file = fileChooser.showSaveDialog(primaryStage);
-            if (file != null) {
+            fileChooser.setTitle("Save As...");
+            File saveable = fileChooser.showSaveDialog(primaryStage);
+            if (saveable != null) {
                 try {
-                    FileHandler.save(file, diagram);
+                    FileHandler.save(saveable, diagram);
+                    file = saveable;
                     primaryStage.setTitle(file.getName());
                 } catch (IOException ex) {
                     error.setContentText(ex.getMessage());
@@ -276,10 +277,12 @@ public class MainWindow extends Application {
         MenuItem open = new MenuItem("Open");
         open.setAccelerator(new KeyCodeCombination(KeyCode.O, KeyCombination.CONTROL_DOWN));
         open.setOnAction(e -> {
-            file = fileChooser.showOpenDialog(primaryStage);
-            if (file != null) {
+            fileChooser.setTitle("Open");
+            File openable = fileChooser.showOpenDialog(primaryStage);
+            if (openable != null) {
                 try {
-                    FileHandler.open(file, diagram);
+                    FileHandler.open(openable, diagram);
+                    file = openable;
                     primaryStage.setTitle(file.getName());
                 } catch (Exception ex) {
                     error.setContentText(ex.getMessage());
