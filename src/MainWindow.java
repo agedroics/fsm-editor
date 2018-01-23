@@ -119,7 +119,7 @@ public class MainWindow extends Application {
                     nextSymbol.setText("Remaining input: " + runner.getWord().substring(runner.getPos()));
                     stepForward.setDisable(false);
                 } else {
-                    nextSymbol.setText("Input has reached end");
+                    nextSymbol.setText("End of input reached");
                 }
             }
         });
@@ -128,7 +128,7 @@ public class MainWindow extends Application {
             stepBack.setDisable(false);
             runner.stepForward();
             if (runner.getPos() == runner.getWord().length()) {
-                nextSymbol.setText("Input has reached end");
+                nextSymbol.setText("End of input reached");
                 stepForward.setDisable(true);
             } else {
                 nextSymbol.setText("Remaining input: " + runner.getWord().substring(runner.getPos()));

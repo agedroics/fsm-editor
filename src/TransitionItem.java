@@ -39,7 +39,7 @@ public class TransitionItem {
             super.updateItem(item, empty);
             if (item != null) {
                 BorderPane cellPane = new BorderPane();
-                Text name = new Text("\uD835\uDEFF(" + item.transition.getStateFrom().getName() + ", " + item.symbol +
+                Text name = new Text("δ(" + item.transition.getStateFrom().getName() + ", " + item.symbol +
                         ") = " + item.transition.getStateTo().getName());
                 cellPane.setLeft(name);
                 BorderPane.setAlignment(name, Pos.CENTER_LEFT);
