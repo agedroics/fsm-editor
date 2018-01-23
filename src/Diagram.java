@@ -210,7 +210,9 @@ public class Diagram extends Canvas {
         Set<Transition> removableTransitions = new HashSet<>();
         transitions.forEach(t -> {
             t.getSymbols().removeIf(s -> !this.alphabet.contains(s) && !s.equals("ε"));
-            removableTransitions.add(t);
+            if (t.getSymbols().isEmpty()) {
+                removableTransitions.add(t);
+            }
         });
         transitions.removeAll(removableTransitions);
         removableTransitions.forEach(t -> t.getStateFrom().getTransitions().remove(t));
